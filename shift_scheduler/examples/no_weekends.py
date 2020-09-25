@@ -83,11 +83,11 @@ def _run(working_weekends, not_working_weekends):
         ),
         {},
         gamla.pipe(
-            datetime.date(2020, 10, 1),
+            datetime.date(2020, 7, 26),
             # In small numbers it is better to allocate first the weekend shifts,
             # otherwise we might over-allocate people who do all shift kinds.
             gamla.juxt(_weekend_shifts, _weekday_shifts),
-            curried.mapcat(curried.take(20)),
+            curried.mapcat(curried.take(22)),
         ),
     )
 
@@ -108,13 +108,14 @@ _scheduling_to_text = gamla.compose_left(
     _flatten_days,
     gamla.map(
         gamla.compose_left(
-            gamla.star(lambda person, date: (date.strftime("%Y-%m-%d %A"), person)),
+            gamla.star(
+                lambda person, date: (date.strftime("%Y-%m-%d %A"), person, "\n"),
+            ),
             "\t".join,
             lambda s: s.expandtabs(25),
         ),
     ),
     curried.sorted,
-    "\n".join,
 )
 
 
