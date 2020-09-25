@@ -1,14 +1,33 @@
-import gamla
-
-from shift_scheduler import schedule
+from shift_scheduler import time_utils
 
 import toolz
-import itertools
+from toolz import curried
+import gamla
+from shift_scheduler import schedule
+
+import datetime
 
 
 @gamla.curry
-def _availabilty(working_weekends, _, time, person):
-    return not schedule.is_friday_or_saturday(time) or person in working_weekends
+def _availabilty(working_weekends, scheduling, shift, person):
+    return (
+        not gamla.anymap(
+            gamla.anyjuxt(time_utils.is_friday, time_utils.is_saturday),
+            shift,
+        )
+        or person in working_weekends
+    )
+
+
+def alternating_weekdays_and_weekends(start_date):
+    buffer = ()
+    current = start_date
+    while True:
+        if time_utils.is_friday(current) or time_utils.is_sunday(current):
+            yield buffer
+            buffer = ()
+        buffer = (*buffer, current)
+        current += datetime.timedelta(days=1)
 
 
 def _run(working_weekends, not_working_weekends):
@@ -16,31 +35,78 @@ def _run(working_weekends, not_working_weekends):
         schedule.assign_shift(
             working_weekends + not_working_weekends,
             _availabilty(not_working_weekends),
-            schedule.comparator(
-                gamla.just(1.0),
-                schedule.no_one_is_especially_unavailable,
-                lambda time, shift: 2 if schedule.is_friday_or_saturday(time) else 1,
+            lambda scheduling, shift: schedule.compare_by(
+                [
+                    gamla.compose_left(
+                        schedule.shifts_manned_by_person(scheduling),
+                        toolz.concat,
+                        gamla.map(
+                            gamla.ternary(
+                                gamla.anyjuxt(
+                                    time_utils.is_friday, time_utils.is_saturday
+                                ),
+                                gamla.just(2),
+                                gamla.just(1),
+                            )
+                        ),
+                        sum,
+                    )
+                ]
             ),
         ),
         {},
-        itertools.product(
-            ["oncall"],
-            toolz.concat(
-                [
-                    schedule.get_all_days_in_month(2020, 1),
-                    schedule.get_all_days_in_month(2020, 2),
-                    schedule.get_all_days_in_month(2020, 3),
-                    schedule.get_all_days_in_month(2020, 4),
-                ]
-            ),
+        gamla.pipe(
+            alternating_weekdays_and_weekends(datetime.date(2020, 10, 1)),
+            curried.take(30),
         ),
     )
 
 
+import itertools
+
+_scheduling_to_text = gamla.compose_left(
+    curried.mapcat(
+        gamla.compose_left(
+            gamla.star(
+                lambda person, shift: (
+                    (person,),
+                    shift,
+                )
+            ),
+            gamla.star(itertools.product),
+        ),
+    ),
+    gamla.map(
+        gamla.compose_left(
+            gamla.star(lambda person, date: (date.strftime("%Y-%m-%d %A"), person)),
+            "\t".join,
+            lambda s: s.expandtabs(25),
+        ),
+    ),
+    curried.sorted,
+    "\n".join,
+)
+
+
 def _write():
     gamla.pipe(
-        _run(["a", "b", "c"], ["e", "f"]),
-        schedule.scheduling_to_text,
+        _run(
+            [
+                "a",
+                "b",
+                "c",
+                "d",
+                "e",
+                "f",
+                "g",
+                "h",
+            ],
+            [
+                "i",
+                "j",
+            ],
+        ),
+        _scheduling_to_text,
         lambda text: open("./oncall_rotation.txt", "w").writelines(text),
     )
 
