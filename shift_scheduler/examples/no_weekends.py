@@ -34,7 +34,7 @@ def _run(working_weekends, not_working_weekends):
     return gamla.reduce(
         schedule.assign_shift(
             working_weekends + not_working_weekends,
-            _availabilty(not_working_weekends),
+            _availabilty(working_weekends),
             lambda scheduling, shift: schedule.compare_by(
                 [
                     gamla.compose_left(
