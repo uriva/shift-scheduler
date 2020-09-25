@@ -82,14 +82,14 @@ def comparator(
     return _compare_by_heuristic(
         [
             lambda person: (
+                _compute_money(money_for_time_and_shift, scheduling.get(person, {}))
+                / person_to_sow(person)
+            ),
+            lambda person: (
                 _compute_shift_amount(
                     shift,
                     scheduling.get(person, {}),
                 )
-                / person_to_sow(person)
-            ),
-            lambda person: (
-                _compute_money(money_for_time_and_shift, scheduling.get(person, {}))
                 / person_to_sow(person)
             ),
             availabilty(shift),
