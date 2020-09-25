@@ -97,8 +97,44 @@ def comparator(
     )
 
 
-def get_all_days_in_month(year, month) -> Iterable[Time]:
+def get_all_days_in_month(year: int, month: int) -> Iterable[Time]:
     return (
         datetime.date(year, month, day)
         for day in range(1, calendar.monthrange(year, month)[1] + 1)
     )
+
+
+def is_friday_or_saturday(time: Time):
+    return time.weekday() in [4, 5]
+
+
+@gamla.curry
+def no_one_is_especially_unavailable(shift: Shift, person: Person) -> int:
+    return 0
+
+
+scheduling_to_text = gamla.compose_left(
+    dict.items,
+    curried.mapcat(
+        gamla.star(
+            lambda person, time_to_shift: gamla.pipe(
+                time_to_shift,
+                dict.items,
+                curried.map(
+                    gamla.compose_left(
+                        gamla.star(
+                            lambda time, shift: (
+                                time.strftime("%Y-%m-%d %A"),
+                                person,
+                            )
+                        ),
+                        "\t".join,
+                        lambda s: s.expandtabs(25),
+                    ),
+                ),
+            )
+        )
+    ),
+    curried.sorted,
+    "\n".join,
+)
