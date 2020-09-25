@@ -8,9 +8,7 @@ import itertools
 
 @gamla.curry
 def _availabilty(working_weekends, _, time, person):
-    if schedule.is_friday_or_saturday(time):
-        return person in working_weekends
-    return True
+    return not schedule.is_friday_or_saturday(time) or person in working_weekends
 
 
 def _run(working_weekends, not_working_weekends):

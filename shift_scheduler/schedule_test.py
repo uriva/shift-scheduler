@@ -34,9 +34,7 @@ def test_groups_with_weekend_preferences():
 
     @gamla.curry
     def availabilty(shift, time, person):
-        if schedule.is_friday_or_saturday(time):
-            return person in working_weekends
-        return True
+        return not schedule.is_friday_or_saturday(time) or person in working_weekends
 
     gamla.pipe(
         gamla.reduce(
