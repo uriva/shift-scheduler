@@ -1,11 +1,11 @@
-from shift_scheduler import time_utils
+import datetime
+import itertools
 
+import gamla
 import toolz
 from toolz import curried
-import gamla
-from shift_scheduler import schedule
 
-import datetime
+from shift_scheduler import schedule, time_utils
 
 
 @gamla.curry
@@ -43,15 +43,16 @@ def _run(working_weekends, not_working_weekends):
                         gamla.map(
                             gamla.ternary(
                                 gamla.anyjuxt(
-                                    time_utils.is_friday, time_utils.is_saturday
+                                    time_utils.is_friday,
+                                    time_utils.is_saturday,
                                 ),
                                 gamla.just(2),
                                 gamla.just(1),
-                            )
+                            ),
                         ),
                         sum,
-                    )
-                ]
+                    ),
+                ],
             ),
         ),
         {},
@@ -62,8 +63,6 @@ def _run(working_weekends, not_working_weekends):
     )
 
 
-import itertools
-
 _scheduling_to_text = gamla.compose_left(
     curried.mapcat(
         gamla.compose_left(
@@ -71,7 +70,7 @@ _scheduling_to_text = gamla.compose_left(
                 lambda person, shift: (
                     (person,),
                     shift,
-                )
+                ),
             ),
             gamla.star(itertools.product),
         ),
@@ -107,7 +106,7 @@ def _write():
             ],
         ),
         _scheduling_to_text,
-        lambda text: open("./oncall_rotation.txt", "w").writelines(text),
+        open("./oncall_rotation.txt", "w").writelines,
     )
 
 

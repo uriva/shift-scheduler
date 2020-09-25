@@ -1,11 +1,10 @@
-from toolz.curried import operator
-
 import functools
-from typing import Callable, Collection, FrozenSet, Text, Tuple, Any, Iterable
+from typing import Any, Callable, Collection, FrozenSet, Iterable, Text, Tuple
 
 import gamla
 import toolz
 from toolz import curried
+from toolz.curried import operator
 
 Person = Text
 Shift = Any
@@ -17,7 +16,11 @@ class NoPersonAvailable(Exception):
 
 
 @gamla.curry
-def compare_by(heuristics: Callable[[Person], float], x: Person, y: Person) -> float:
+def compare_by(
+    heuristics: Iterable[Callable[[Person], float]],
+    x: Person,
+    y: Person,
+) -> float:
     for heuristic in heuristics:
         delta = heuristic(x) - heuristic(y)
         if delta:
