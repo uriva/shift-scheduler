@@ -1,5 +1,7 @@
 import datetime
 import itertools
+import logging
+import random
 
 import gamla
 import toolz
@@ -7,74 +9,103 @@ from toolz import curried
 
 from shift_scheduler import schedule, time_utils
 
+_is_weekend = gamla.anyjuxt(
+    time_utils.is_friday,
+    time_utils.is_saturday,
+)
+
 
 @gamla.curry
 def _availabilty(working_weekends, scheduling, shift, person):
-    return (
-        not gamla.anymap(
-            gamla.anyjuxt(time_utils.is_friday, time_utils.is_saturday),
-            shift,
-        )
-        or person in working_weekends
-    )
+    return not gamla.anymap(_is_weekend, shift) or person in working_weekends
 
 
-def alternating_weekdays_and_weekends(start_date):
+def _weekday_shifts(start_date):
     buffer = ()
     current = start_date
     while True:
-        if time_utils.is_friday(current) or time_utils.is_sunday(current):
+        if time_utils.is_sunday(current):
+            buffer = ()
+        if time_utils.is_friday(current):
             yield buffer
             buffer = ()
         buffer = (*buffer, current)
         current += datetime.timedelta(days=1)
 
 
+def _weekend_shifts(start_date):
+    buffer = ()
+    current = start_date
+    while True:
+        if time_utils.is_friday(current):
+            buffer = ()
+        if time_utils.is_sunday(current):
+            yield buffer
+            buffer = ()
+        buffer = (*buffer, current)
+        current += datetime.timedelta(days=1)
+
+
+_days_to_weight = gamla.compose_left(
+    gamla.map(
+        gamla.ternary(
+            _is_weekend,
+            gamla.just(2),
+            gamla.just(1),
+        ),
+    ),
+    sum,
+)
+
+
+def _weighted_shifts(scheduling):
+    return gamla.compose_left(
+        schedule.shifts_manned_by_person(scheduling),
+        toolz.concat,
+        _days_to_weight,
+    )
+
+
 def _run(working_weekends, not_working_weekends):
+    everyone = working_weekends + not_working_weekends
+    # Shuffle to avoid situations where people order consistently
+    # makes some people get more shifts.
+    random.shuffle(everyone)
     return gamla.reduce(
         schedule.assign_shift(
-            working_weekends + not_working_weekends,
+            everyone,
             _availabilty(working_weekends),
             lambda scheduling, shift: schedule.compare_by(
                 [
-                    gamla.compose_left(
-                        schedule.shifts_manned_by_person(scheduling),
-                        toolz.concat,
-                        gamla.map(
-                            gamla.ternary(
-                                gamla.anyjuxt(
-                                    time_utils.is_friday,
-                                    time_utils.is_saturday,
-                                ),
-                                gamla.just(2),
-                                gamla.just(1),
-                            ),
-                        ),
-                        sum,
-                    ),
+                    _weighted_shifts(scheduling),
                 ],
             ),
         ),
         {},
         gamla.pipe(
-            alternating_weekdays_and_weekends(datetime.date(2020, 10, 1)),
-            curried.take(30),
+            datetime.date(2020, 10, 1),
+            # In small numbers it is better to allocate first the weekend shifts,
+            # otherwise we might over-allocate people who do all shift kinds.
+            gamla.juxt(_weekend_shifts, _weekday_shifts),
+            curried.mapcat(curried.take(20)),
         ),
     )
 
 
-_scheduling_to_text = gamla.compose_left(
-    curried.mapcat(
-        gamla.compose_left(
-            gamla.star(
-                lambda person, shift: (
-                    (person,),
-                    shift,
-                ),
+_flatten_days = curried.mapcat(
+    gamla.compose_left(
+        gamla.star(
+            lambda person, shift: (
+                (person,),
+                shift,
             ),
-            gamla.star(itertools.product),
         ),
+        gamla.star(itertools.product),
     ),
+)
+
+_scheduling_to_text = gamla.compose_left(
+    _flatten_days,
     gamla.map(
         gamla.compose_left(
             gamla.star(lambda person, date: (date.strftime("%Y-%m-%d %A"), person)),
@@ -87,8 +118,29 @@ _scheduling_to_text = gamla.compose_left(
 )
 
 
+_print_justice = gamla.compose_left(
+    _flatten_days,
+    gamla.edges_to_graph,
+    gamla.valmap(
+        gamla.juxt(
+            gamla.compose_left(
+                _days_to_weight,
+                gamla.wrap_str("weight: {}"),
+            ),
+            gamla.compose_left(toolz.count, gamla.wrap_str("total: {}")),
+            gamla.compose_left(
+                curried.filter(_is_weekend),
+                toolz.count,
+                gamla.wrap_str("weekend: {}"),
+            ),
+        ),
+    ),
+    logging.info,
+)
+
+
 def _write():
-    gamla.pipe(
+    text = gamla.pipe(
         _run(
             [
                 "a",
@@ -105,9 +157,10 @@ def _write():
                 "j",
             ],
         ),
+        curried.do(_print_justice),
         _scheduling_to_text,
-        open("./oncall_rotation.txt", "w").writelines,
     )
+    open("./oncall_rotation.txt", "w").writelines(text)
 
 
 _write()
