@@ -1,6 +1,4 @@
 import itertools
-import toolz
-from toolz.curried import operator
 
 import gamla
 
@@ -17,15 +15,15 @@ def test_john_is_lazy():
                     [
                         gamla.compose_left(
                             schedule.shifts_manned_by_person(scheduling),
-                            toolz.count,
-                        )
-                    ]
+                            gamla.count,
+                        ),
+                    ],
                 ),
             ),
             {},
             time_utils.get_all_days_in_month(2020, 1),
         ),
-        gamla.map(toolz.first),
+        gamla.map(gamla.head),
         frozenset,
     )
     assert "john" not in people_with_shifts
@@ -50,10 +48,10 @@ def test_groups_with_weekend_preferences():
                 gamla.curry(
                     lambda scheduling, shift, person: (
                         not gamla.anyjuxt(time_utils.is_friday, time_utils.is_saturday)(
-                            shift
+                            shift,
                         )
                         or person in working_weekends,
-                    )
+                    ),
                 ),
                 lambda scheduling, shift: schedule.compare_by(
                     [
@@ -61,18 +59,18 @@ def test_groups_with_weekend_preferences():
                             schedule.shifts_manned_by_person(scheduling),
                             gamla.map(shift_to_money),
                             sum,
-                        )
-                    ]
+                        ),
+                    ],
                 ),
             ),
             {},
-            toolz.concat(
+            gamla.concat(
                 [
                     time_utils.get_all_days_in_month(2020, 1),
                     time_utils.get_all_days_in_month(2020, 2),
                     time_utils.get_all_days_in_month(2020, 3),
                     time_utils.get_all_days_in_month(2020, 4),
-                ]
+                ],
             ),
         ),
         gamla.edges_to_graph,
@@ -80,11 +78,11 @@ def test_groups_with_weekend_preferences():
             gamla.compose_left(
                 gamla.map(shift_to_money),
                 sum,
-            )
+            ),
         ),
         dict.values,
         lambda efforts: itertools.combinations(efforts, 2),
         gamla.map(gamla.star(lambda x, y: abs(x - y))),
         max,
-        gamla.check(operator.gt(2), AssertionError),
+        gamla.check(gamla.less_than(2), AssertionError),
     )

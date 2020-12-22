@@ -4,8 +4,6 @@ import logging
 import random
 
 import gamla
-import toolz
-from toolz import curried
 
 from shift_scheduler import schedule, time_utils
 
@@ -61,7 +59,7 @@ _days_to_weight = gamla.compose_left(
 def _weighted_shifts(scheduling):
     return gamla.compose_left(
         schedule.shifts_manned_by_person(scheduling),
-        toolz.concat,
+        gamla.concat,
         _days_to_weight,
     )
 
@@ -87,12 +85,12 @@ def _run(working_weekends, not_working_weekends):
             # In small numbers it is better to allocate first the weekend shifts,
             # otherwise we might over-allocate people who do all shift kinds.
             gamla.juxt(_weekend_shifts, _weekday_shifts),
-            curried.mapcat(curried.take(22)),
+            gamla.mapcat(gamla.take(22)),
         ),
     )
 
 
-_flatten_days = curried.mapcat(
+_flatten_days = gamla.mapcat(
     gamla.compose_left(
         gamla.star(
             lambda person, shift: (
@@ -115,7 +113,7 @@ _scheduling_to_text = gamla.compose_left(
             lambda s: s.expandtabs(25),
         ),
     ),
-    curried.sorted,
+    gamla.sort,
 )
 
 
@@ -128,10 +126,10 @@ _print_justice = gamla.compose_left(
                 _days_to_weight,
                 gamla.wrap_str("weight: {}"),
             ),
-            gamla.compose_left(toolz.count, gamla.wrap_str("total: {}")),
+            gamla.compose_left(gamla.count, gamla.wrap_str("total: {}")),
             gamla.compose_left(
-                curried.filter(_is_weekend),
-                toolz.count,
+                gamla.filter(_is_weekend),
+                gamla.count,
                 gamla.wrap_str("weekend: {}"),
             ),
         ),
@@ -158,7 +156,7 @@ def _write():
                 "j",
             ],
         ),
-        curried.do(_print_justice),
+        gamla.side_effect(_print_justice),
         _scheduling_to_text,
     )
     open("./oncall_rotation.txt", "w").writelines(text)

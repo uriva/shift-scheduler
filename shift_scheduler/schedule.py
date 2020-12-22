@@ -2,9 +2,6 @@ import functools
 from typing import Any, Callable, Collection, FrozenSet, Iterable, Text, Tuple
 
 import gamla
-import toolz
-from toolz import curried
-from toolz.curried import operator
 
 Person = Text
 Shift = Any
@@ -39,13 +36,13 @@ def assign_shift(
 ) -> Scheduling:
     return gamla.pipe(
         people,
-        curried.filter(
+        gamla.filter(
             is_available(scheduling, shift),
         ),
-        curried.sorted(
-            key=functools.cmp_to_key(comparator(scheduling, shift)),
+        gamla.sort_by(
+            functools.cmp_to_key(comparator(scheduling, shift)),
         ),
-        gamla.translate_exception(toolz.first, StopIteration, NoPersonAvailable),
+        gamla.translate_exception(gamla.head, StopIteration, NoPersonAvailable),
         lambda person: {*scheduling, (person, shift)},
     )
 
@@ -54,8 +51,6 @@ def assign_shift(
 def shifts_manned_by_person(scheduling: Scheduling, person: Person) -> Iterable[Shift]:
     return gamla.pipe(
         scheduling,
-        curried.filter(
-            gamla.compose_left(toolz.first, operator.eq(person)),
-        ),
-        curried.map(toolz.second),
+        gamla.filter(gamla.compose_left(gamla.head, gamla.equals(person))),
+        gamla.map(gamla.second),
     )
